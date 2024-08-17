@@ -1,31 +1,32 @@
-use bevy::ecs::entity;
-use bevy::{core::Name, ecs::query, prelude::*};
-use bevy::{transform::commands, utils::HashMap};
+use bevy::prelude::*;
+use rustc_hash::FxHashMap;
+use serde::Deserialize;
+use serde_json::Value as JsonValue;
+use smallvec::SmallVec;
+use std::time::Instant;
 
 #[derive(Component, Debug, Clone)]
 struct Item;
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Deserialize)]
 struct DisplayName(String);
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Deserialize)]
 struct Weight(f32);
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Deserialize)]
 struct UseDelta(f32);
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Deserialize)]
 struct UseAmount(f32);
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Deserialize)]
 struct Icon(String);
 
-#[derive(Component, Debug, Clone)]
-struct Tags(Vec<String>);
+#[derive(Component, Debug, Clone, Deserialize)]
+struct Tags(SmallVec<[String; 4]>);
 
-//TODO: Find a more memory efficient structure for the below
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 enum PropertyValue {
     Bool(bool),
     Int(i32),
@@ -33,10 +34,10 @@ enum PropertyValue {
     Text(String),
 }
 
-#[derive(Component, Debug, Clone)]
-struct ItemProperties(HashMap<String, PropertyValue>);
+#[derive(Component, Debug, Clone, Deserialize)]
+struct ItemProperties(FxHashMap<String, PropertyValue>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Deserialize)]
 struct RawItemData {
     displayname: Option<DisplayName>,
     weight: Option<Weight>,
@@ -48,10 +49,11 @@ struct RawItemData {
 
 #[derive(Resource)]
 struct ItemStorage {
-    items: HashMap<Name, RawItemData>,
-} //TODO: Test loading to and from disk
+    items: FxHashMap<Name, RawItemData>,
+}
 
 fn spawn_item(mut commands: Commands, item_storage: Res<ItemStorage>, name: String) {
+    let start = Instant::now();
     let item_name = Name::new(name);
     if let Some(item) = item_storage.items.get(&item_name) {
         let mut entity = commands.spawn((Item, item_name.clone()));
@@ -69,23 +71,27 @@ fn spawn_item(mut commands: Commands, item_storage: Res<ItemStorage>, name: Stri
         if let Some(icon) = &item.icon {
             entity.insert(icon.clone());
         }
+        if let Some(tags) = &item.tags {
+            entity.insert(tags.clone());
+        }
         if let Some(properties) = &item.properties {
             entity.insert(properties.clone());
         }
 
-        println!("Successfully spawned {}.", &item_name);
+        let duration = start.elapsed();
+        println!("Successfully spawned {} in {:?}.", &item_name, duration);
     } else {
         println!("Item '{}' not found in item storage.", &item_name);
     }
 }
 
-fn spawn_sword(mut commands: Commands, item_storage: Res<ItemStorage>) {
+fn spawn_potion(mut commands: Commands, item_storage: Res<ItemStorage>) {
     let name = "potion".to_string();
     spawn_item(commands, item_storage, name)
 }
 
 fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<ItemStorage>) {
-    //TODO: Add deserialization and reading from msgpack
+    //TODO: Add deserialization and reading from json
 
     let items_data = vec![
         (
@@ -97,7 +103,7 @@ fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<ItemSt
                 icon: None,
                 tags: None,
                 properties: Some(ItemProperties({
-                    let mut props = HashMap::new();
+                    let mut props = FxHashMap::default();
                     props.insert(String::from("Damage"), PropertyValue::Int(30));
                     props
                 })),
@@ -112,7 +118,7 @@ fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<ItemSt
                 icon: None,
                 tags: None,
                 properties: Some(ItemProperties({
-                    let mut props = HashMap::new();
+                    let mut props = FxHashMap::default();
                     props.insert(String::from("Defense"), PropertyValue::Int(50));
                     props
                 })),
@@ -125,8 +131,15 @@ fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<ItemSt
                 weight: Some(Weight(0.25)),
                 use_delta: Some(UseDelta(0.125)),
                 icon: Some(Icon("Icon".to_string())),
-                tags: Some(Tags(vec!["Healing".to_string(), "Consumable".to_string()])),
-                properties: None,
+                tags: Some(Tags(SmallVec::from_vec(vec![
+                    "Healing".to_string(),
+                    "Consumable".to_string(),
+                ]))),
+                properties: Some(ItemProperties({
+                    let mut props = FxHashMap::default();
+                    props.insert(String::from("Healing"), PropertyValue::Int(30));
+                    props
+                })),
             },
         ),
     ];
@@ -151,6 +164,7 @@ fn fetch_item_info(
             Option<&UseDelta>,
             Option<&UseAmount>,
             Option<&Icon>,
+            Option<&Tags>,
             Option<&ItemProperties>,
         ),
         With<Item>,
@@ -164,6 +178,7 @@ fn fetch_item_info(
         usedelta_option,
         useamount_option,
         icon_option,
+        tags_option,
         itemproperties_option,
     ) in query.iter()
     {
@@ -189,6 +204,13 @@ fn fetch_item_info(
             println!("    Icon: {}", icon.0);
         }
 
+        if let Some(tags) = tags_option {
+            println!("    Tags:");
+            for (tag) in &tags.0 {
+                println!("      {:?}", tag)
+            }
+        }
+
         if let Some(itemproperties) = itemproperties_option {
             println!("    Properties:");
             for (key, value) in &itemproperties.0 {
@@ -203,18 +225,14 @@ fn fetch_item_info(
     }
 }
 
-fn test_spawn_nonexistent_item(mut commands: Commands, item_storage: Res<ItemStorage>) {
-    let name = "nonexistent_item".to_string();
-    spawn_item(commands, item_storage, name)
-}
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(ItemStorage {
-            items: HashMap::new(),
+            items: FxHashMap::default(),
         })
-        .add_systems(Startup, (initialize_dictionary, spawn_sword))
-        .add_systems(PostStartup, (fetch_item_info, test_spawn_nonexistent_item))
+        .add_systems(PreStartup, initialize_dictionary)
+        .add_systems(Startup, (spawn_potion))
+        .add_systems(PostStartup, (fetch_item_info))
         .run();
 }
