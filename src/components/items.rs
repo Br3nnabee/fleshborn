@@ -1,4 +1,6 @@
+use bevy::ecs::bundle::*;
 use bevy::ecs::component::*;
+use bevy::ecs::entity::Entity;
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 
@@ -25,7 +27,17 @@ pub struct ItemProperties(pub FxHashMap<String, PropertyValue>);
 #[derive(Component, Debug)]
 pub struct Inventory {
     pub weight_limit: Option<f32>,
+    pub items: Vec<Entity>,
 }
 
 #[derive(Component, Debug)]
 pub struct Container;
+
+#[derive(Bundle)]
+pub struct ContainerBundle {
+    pub marker: Container,
+    pub inventory: Inventory,
+}
+
+#[derive(Component, Debug)]
+pub struct ParentContainer(pub Entity);

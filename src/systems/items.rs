@@ -1,12 +1,18 @@
 use crate::components::common::{DisplayName, Icon, Tags, Weight};
-use crate::components::items::{Item, ItemProperties, PropertyValue, UseAmount, UseDelta};
+use crate::components::items::*;
 use crate::resources::items::{ItemStorage, RawItemData};
 use bevy::prelude::*;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use std::time::Instant;
 
-pub fn spawn_item(mut commands: Commands, item_storage: Res<ItemStorage>, name: String) {
+pub fn spawn_item(
+    mut commands: &mut Commands,
+    item_storage: Res<ItemStorage>,
+    name: String,
+) -> Option<Entity> {
     let start = Instant::now();
     let item_name = Name::new(name);
     if let Some(item) = item_storage.items.get(&item_name) {
@@ -34,14 +40,16 @@ pub fn spawn_item(mut commands: Commands, item_storage: Res<ItemStorage>, name: 
 
         let duration = start.elapsed();
         println!("Successfully spawned {} in {:?}.", &item_name, duration);
+        Some(entity.id())
     } else {
         println!("Item '{}' not found in item storage.", &item_name);
+        None
     }
 }
 
 pub fn spawn_potion(mut commands: Commands, item_storage: Res<ItemStorage>) {
     let name = "potion".to_string();
-    spawn_item(commands, item_storage, name)
+    let _ = spawn_item(&mut commands, item_storage, name);
 }
 
 pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<ItemStorage>) {
@@ -123,6 +131,7 @@ pub fn fetch_item_info(
             Option<&Icon>,
             Option<&Tags>,
             Option<&ItemProperties>,
+            Option<&ParentContainer>,
         ),
         With<Item>,
     >,
@@ -138,6 +147,7 @@ pub fn fetch_item_info(
         icon_option,
         tags_option,
         itemproperties_option,
+        parentcontainer_option,
     ) in query.iter()
     {
         println!("  {}", name.as_str());
@@ -184,7 +194,36 @@ pub fn fetch_item_info(
                 );
             }
         }
+
+        if let Some(parentcontainer) = parentcontainer_option {
+            println!("    Parent Container: {:?}", parentcontainer.0);
+        }
     }
 }
 
-pub fn spawn_container() {}
+pub fn spawn_container(commands: &mut Commands) -> Entity {
+    commands
+        .spawn(
+            (ContainerBundle {
+                marker: Container,
+                inventory: Inventory {
+                    weight_limit: Some(10.0),
+                    items: Vec::new(),
+                },
+            }),
+        )
+        .id()
+}
+
+pub fn generate_container_items(mut commands: Commands, item_storage: Res<ItemStorage>) {
+    let container_entity = spawn_container(&mut commands); // Pass commands as a mutable reference
+    let item_list: Vec<Name> = item_storage.items.keys().cloned().collect();
+
+    let mut rng = thread_rng();
+    if let Some(name) = item_list.choose(&mut rng) {
+        let item = spawn_item(&mut commands, item_storage, name.as_str().to_string());
+        commands
+            .entity(item.unwrap())
+            .insert(ParentContainer(container_entity));
+    }
+}

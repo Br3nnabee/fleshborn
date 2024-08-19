@@ -15,6 +15,7 @@ fn init_player(mut commands: Commands) -> Entity {
                 display_name: DisplayName(display_name),
                 inventory: Inventory {
                     weight_limit: Some(10.0),
+                    items: Vec::new(),
                 },
             },
             SpatialBundle {
