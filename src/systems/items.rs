@@ -202,7 +202,7 @@ pub fn fetch_item_info(
 }
 
 pub fn spawn_container(commands: &mut Commands) -> Entity {
-    commands
+    let container = commands
         .spawn(
             (ContainerBundle {
                 marker: Container,
@@ -212,18 +212,36 @@ pub fn spawn_container(commands: &mut Commands) -> Entity {
                 },
             }),
         )
-        .id()
+        .id();
+    println!("Container spawned with id: {}", container);
+    container
 }
 
-pub fn generate_container_items(mut commands: Commands, item_storage: Res<ItemStorage>) {
-    let container_entity = spawn_container(&mut commands); // Pass commands as a mutable reference
+pub fn generate_container_items(
+    mut commands: Commands,
+    item_storage: Res<ItemStorage>,
+    mut query: Query<&Inventory>,
+) {
+    let container_entity: Entity = spawn_container(&mut commands);
+    println!("{}", container_entity);
     let item_list: Vec<Name> = item_storage.items.keys().cloned().collect();
 
     let mut rng = thread_rng();
-    if let Some(name) = item_list.choose(&mut rng) {
-        let item = spawn_item(&mut commands, item_storage, name.as_str().to_string());
-        commands
-            .entity(item.unwrap())
-            .insert(ParentContainer(container_entity));
+
+    for (inventory) in &mut query {
+        println!("Inventory: {:?}", inventory)
+    }
+}
+
+pub fn add_item_to_container(
+    mut commands: &mut Commands,
+    item: Entity,
+    container: Entity,
+    mut query: Query<&Inventory>,
+) {
+    if let Ok(inventory) = query.get_mut(container) {
+        // do something with the components
+    } else {
+        println!("Container inventory not found")
     }
 }
