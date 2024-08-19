@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::ecs::component::*;
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 
@@ -21,3 +21,11 @@ pub enum PropertyValue {
 
 #[derive(Component, Debug, Clone, Deserialize)]
 pub struct ItemProperties(pub FxHashMap<String, PropertyValue>);
+
+#[derive(Component, Debug)]
+pub struct Inventory {
+    pub weight_limit: Option<f32>,
+}
+
+#[derive(Component, Debug)]
+pub struct Container;

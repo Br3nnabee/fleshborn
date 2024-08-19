@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::ecs::component::*;
 use serde::Deserialize;
 use smallvec::SmallVec;
 

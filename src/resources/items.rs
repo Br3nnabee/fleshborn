@@ -1,6 +1,7 @@
 use crate::components::common::{DisplayName, Icon, Tags, Weight};
 use crate::components::items::{Item, ItemProperties, PropertyValue, UseAmount, UseDelta};
-use bevy::prelude::*;
+use bevy::core::Name;
+use bevy::ecs::prelude::Resource;
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 

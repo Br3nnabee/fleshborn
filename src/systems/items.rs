@@ -98,14 +98,17 @@ pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<It
         ),
     ];
 
+    let start = Instant::now();
     for (name, data) in items_data {
         let item_name = Name::new(name);
         item_storage.items.insert(item_name, data);
     }
 
+    let duration = start.elapsed();
     println!(
-        "Item dictionary initialized with {} items.",
-        item_storage.items.len()
+        "Item dictionary initialized with {} items in {:?}.",
+        item_storage.items.len(),
+        duration
     );
 }
 
@@ -125,6 +128,7 @@ pub fn fetch_item_info(
     >,
 ) {
     println!("Items:");
+
     for (
         name,
         displayname_option,
@@ -161,20 +165,26 @@ pub fn fetch_item_info(
         if let Some(tags) = tags_option {
             println!("    Tags:");
             for tag in &tags.0 {
-                println!("      {:?}", tag);
+                println!("      {}", tag);
             }
         }
 
         if let Some(itemproperties) = itemproperties_option {
             println!("    Properties:");
             for (key, value) in &itemproperties.0 {
-                match value {
-                    PropertyValue::Bool(val) => println!("      {}: {}", key, val),
-                    PropertyValue::Int(val) => println!("      {}: {}", key, val),
-                    PropertyValue::Float(val) => println!("      {}: {}", key, val),
-                    PropertyValue::Text(val) => println!("      {}: {}", key, val),
-                }
+                println!(
+                    "      {}: {}",
+                    key,
+                    match value {
+                        PropertyValue::Bool(val) => format!("{}", val),
+                        PropertyValue::Int(val) => format!("{}", val),
+                        PropertyValue::Float(val) => format!("{}", val),
+                        PropertyValue::Text(val) => val.clone(),
+                    }
+                );
             }
         }
     }
 }
+
+pub fn spawn_container() {}
