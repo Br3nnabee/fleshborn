@@ -38,6 +38,3 @@ pub struct ContainerBundle {
     pub marker: Container,
     pub inventory: Inventory,
 }
-
-#[derive(Component, Debug)]
-pub struct ParentContainer(pub Entity);

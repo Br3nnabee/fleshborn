@@ -12,7 +12,7 @@ pub struct ItemStorage {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RawItemData {
-    pub displayname: Option<DisplayName>,
+    pub display_name: Option<DisplayName>,
     pub weight: Option<Weight>,
     pub use_delta: Option<UseDelta>,
     pub icon: Option<Icon>,

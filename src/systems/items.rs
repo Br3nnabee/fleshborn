@@ -2,6 +2,7 @@ use crate::components::common::{DisplayName, Icon, Tags, Weight};
 use crate::components::items::*;
 use crate::resources::items::{ItemStorage, RawItemData};
 use bevy::prelude::*;
+use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rustc_hash::FxHashMap;
@@ -18,8 +19,8 @@ pub fn spawn_item(
     if let Some(item) = item_storage.items.get(&item_name) {
         let mut entity = commands.spawn((Item, item_name.clone()));
 
-        if let Some(displayname) = &item.displayname {
-            entity.insert(displayname.clone());
+        if let Some(display_name) = &item.display_name {
+            entity.insert(display_name.clone());
         }
         if let Some(weight) = &item.weight {
             entity.insert(weight.clone());
@@ -59,7 +60,7 @@ pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<It
         (
             "sword",
             RawItemData {
-                displayname: Some(DisplayName("Sword".to_string())),
+                display_name: Some(DisplayName("Sword".to_string())),
                 weight: Some(Weight(1.0)),
                 use_delta: None,
                 icon: None,
@@ -74,7 +75,7 @@ pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<It
         (
             "shield",
             RawItemData {
-                displayname: Some(DisplayName("Shield".to_string())),
+                display_name: Some(DisplayName("Shield".to_string())),
                 weight: Some(Weight(5.0)),
                 use_delta: None,
                 icon: None,
@@ -89,7 +90,7 @@ pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<It
         (
             "potion",
             RawItemData {
-                displayname: Some(DisplayName("Potion".to_string())),
+                display_name: Some(DisplayName("Potion".to_string())),
                 weight: Some(Weight(0.25)),
                 use_delta: Some(UseDelta(0.125)),
                 icon: Some(Icon("Icon".to_string())),
@@ -131,7 +132,6 @@ pub fn fetch_item_info(
             Option<&Icon>,
             Option<&Tags>,
             Option<&ItemProperties>,
-            Option<&ParentContainer>,
         ),
         With<Item>,
     >,
@@ -140,32 +140,31 @@ pub fn fetch_item_info(
 
     for (
         name,
-        displayname_option,
+        display_name_option,
         weight_option,
-        usedelta_option,
-        useamount_option,
+        use_delta_option,
+        use_amount_option,
         icon_option,
         tags_option,
-        itemproperties_option,
-        parentcontainer_option,
+        item_properties_option,
     ) in query.iter()
     {
         println!("  {}", name.as_str());
 
-        if let Some(displayname) = displayname_option {
-            println!("    DisplayName: {}", displayname.0);
+        if let Some(display_name) = display_name_option {
+            println!("    DisplayName: {}", display_name.0);
         }
 
         if let Some(weight) = weight_option {
             println!("    Weight: {}", weight.0);
         }
 
-        if let Some(usedelta) = usedelta_option {
-            println!("    UseDelta: {}", usedelta.0);
+        if let Some(use_delta) = use_delta_option {
+            println!("    UseDelta: {}", use_delta.0);
         }
 
-        if let Some(useamount) = useamount_option {
-            println!("    UseAmount: {}", useamount.0);
+        if let Some(use_amount) = use_amount_option {
+            println!("    UseAmount: {}", use_amount.0);
         }
 
         if let Some(icon) = icon_option {
@@ -179,9 +178,9 @@ pub fn fetch_item_info(
             }
         }
 
-        if let Some(itemproperties) = itemproperties_option {
+        if let Some(item_properties) = item_properties_option {
             println!("    Properties:");
-            for (key, value) in &itemproperties.0 {
+            for (key, value) in &item_properties.0 {
                 println!(
                     "      {}: {}",
                     key,
@@ -194,15 +193,11 @@ pub fn fetch_item_info(
                 );
             }
         }
-
-        if let Some(parentcontainer) = parentcontainer_option {
-            println!("    Parent Container: {:?}", parentcontainer.0);
-        }
     }
 }
 
 pub fn spawn_container(commands: &mut Commands) -> Entity {
-    let container = commands
+    let container: Entity = commands
         .spawn(
             (ContainerBundle {
                 marker: Container,
@@ -223,13 +218,17 @@ pub fn generate_container_items(
     mut query: Query<&Inventory>,
 ) {
     let container_entity: Entity = spawn_container(&mut commands);
-    println!("{}", container_entity);
     let item_list: Vec<Name> = item_storage.items.keys().cloned().collect();
 
     let mut rng = thread_rng();
-
-    for (inventory) in &mut query {
-        println!("Inventory: {:?}", inventory)
+    if let Some(name) = item_list.choose(&mut rng) {
+        let item = spawn_item(&mut commands, item_storage, name.as_str().to_string());
+        add_item_to_container(
+            &mut commands,
+            item.expect("Failed to find item"),
+            container_entity,
+            query,
+        )
     }
 }
 
@@ -240,7 +239,7 @@ pub fn add_item_to_container(
     mut query: Query<&Inventory>,
 ) {
     if let Ok(inventory) = query.get_mut(container) {
-        // do something with the components
+        // insert the items
     } else {
         println!("Container inventory not found")
     }

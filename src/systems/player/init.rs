@@ -4,14 +4,14 @@ use crate::components::player::*;
 use bevy::prelude::*;
 
 fn init_player(mut commands: Commands) -> Entity {
-    let playername = "Joe";
+    let player_name = "Joe";
     let display_name = "Yes".to_string();
 
     commands
         .spawn((
             PlayerBundle {
                 marker: Player,
-                name: Name::new(playername),
+                name: Name::new(player_name),
                 display_name: DisplayName(display_name),
                 inventory: Inventory {
                     weight_limit: Some(10.0),
