@@ -17,6 +17,8 @@ fn init_player(mut commands: Commands) -> Entity {
                     weight_limit: Some(10.0),
                     items: Vec::new(),
                 },
+                stats: StatsBundle::default(),
+                traits: PlayerTraits(Vec::new()),
             },
             SpatialBundle {
                 transform: Transform::from_scale(Vec3::splat(3.0)),
