@@ -33,6 +33,9 @@ pub struct Inventory {
 #[derive(Component, Debug)]
 pub struct Container;
 
+#[derive(Component, Debug)]
+pub struct ParentContainer(Entity);
+
 #[derive(Bundle)]
 pub struct ContainerBundle {
     pub marker: Container,
