@@ -1,13 +1,25 @@
-use crate::components::common::{DisplayName, Icon, Tags, Weight};
-use crate::components::items::*;
-use crate::resources::items::{ItemStorage, RawItemData};
+use crate::game::common::*;
+use crate::ui::ui::*;
 use bevy::prelude::*;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rustc_hash::FxHashMap;
-use smallvec::SmallVec;
+use serde::Deserialize;
 use std::time::Instant;
+
+pub struct Items;
+
+impl Plugin for Items {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(ItemStorage {
+            items: Default::default(),
+        });
+        app.add_systems(PreStartup, initialize_dictionary);
+        app.add_systems(Startup, (spawn_potion, generate_container_items));
+        app.add_systems(PostStartup, fetch_item_info);
+    }
+}
 
 #[derive(Component, Debug, Clone)]
 pub struct Item;
@@ -45,6 +57,21 @@ pub struct ParentContainer(Entity);
 pub struct ContainerBundle {
     pub marker: Container,
     pub inventory: Inventory,
+}
+
+#[derive(Resource)]
+pub struct ItemStorage {
+    pub items: FxHashMap<Name, RawItemData>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RawItemData {
+    pub display_name: Option<DisplayName>,
+    pub weight: Option<Weight>,
+    pub use_delta: Option<UseDelta>,
+    pub icon: Option<Icon>,
+    pub tags: Option<Tags>,
+    pub properties: Option<ItemProperties>,
 }
 
 pub fn spawn_item(
@@ -132,10 +159,7 @@ pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<It
                 weight: Some(Weight(0.25)),
                 use_delta: Some(UseDelta(0.125)),
                 icon: Some(Icon("Icon".to_string())),
-                tags: Some(Tags(SmallVec::from_vec(vec![
-                    "Healing".to_string(),
-                    "Consumable".to_string(),
-                ]))),
+                tags: Some(Tags(vec!["Healing".to_string(), "Consumable".to_string()])),
                 properties: Some(ItemProperties({
                     let mut props = FxHashMap::default();
                     props.insert(String::from("Healing"), PropertyValue::Int(30));

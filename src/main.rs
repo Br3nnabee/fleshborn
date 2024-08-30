@@ -1,20 +1,12 @@
-use crate::resources::items::ItemStorage;
-use crate::systems::items::{fetch_item_info, initialize_dictionary, spawn_potion};
+use crate::game::items::Items;
 use bevy::prelude::*;
-use systems::items::generate_container_items;
 
-mod components;
-mod resources;
-mod systems;
+mod game;
+mod ui;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(ItemStorage {
-            items: Default::default(),
-        })
-        .add_systems(PreStartup, initialize_dictionary)
-        .add_systems(Startup, (spawn_potion, generate_container_items))
-        .add_systems(PostStartup, fetch_item_info)
+        .add_plugins((Items))
         .run();
 }
