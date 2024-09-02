@@ -3,6 +3,15 @@ use crate::game::items::Inventory;
 use crate::ui::ui::DisplayName;
 use bevy::prelude::*;
 
+pub struct PlayerPlugin;
+
+impl Plugin for PlayerPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, init_player);
+        app.add_systems(Update, player_movement);
+    }
+}
+
 #[derive(Component, Debug)]
 pub struct Player;
 
@@ -109,7 +118,7 @@ pub struct Drunkenness(pub f32);
 #[derive(Component, Debug)]
 pub struct PlayerTraits(pub Vec<String>);
 
-fn init_player(mut commands: Commands) -> Entity {
+pub fn init_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     let player_name = "Joe";
     let display_name = "Yes".to_string();
 
@@ -126,11 +135,45 @@ fn init_player(mut commands: Commands) -> Entity {
                 stats: StatsBundle::default(),
                 traits: PlayerTraits(Vec::new()),
             },
-            SpatialBundle {
-                transform: Transform::from_scale(Vec3::splat(3.0)),
-                visibility: Visibility::Hidden,
-                ..Default::default()
+            SceneBundle {
+                scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("BasePlayer.glb")),
+                ..default()
             },
         ))
-        .id()
+        .id();
+}
+
+fn player_movement(
+    keys: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut player_query: Query<&mut Transform, With<Player>>,
+    mut camera_query: Query<&Transform, (With<Camera3d>, Without<Player>)>,
+) {
+    for mut player_transform in player_query.iter_mut() {
+        let camera = match camera_query.get_single() {
+            Ok(c) => c,
+            Err(e) => Err(format!("Error Retrieving Camera: {}", e)).unwrap(),
+        };
+
+        let mut direction = Vec3::ZERO;
+
+        if keys.pressed(KeyCode::KeyW) {
+            direction += camera.forward().normalize_or_zero();
+        };
+
+        if keys.pressed(KeyCode::KeyR) {
+            direction += camera.back().normalize_or_zero();
+        }
+
+        if keys.pressed(KeyCode::KeyA) {
+            direction += camera.left().normalize_or_zero();
+        }
+
+        if keys.pressed(KeyCode::KeyS) {
+            direction += camera.right().normalize_or_zero();
+        }
+
+        let movement = direction * 2.0 * time.delta_seconds();
+        player_transform.translation += movement;
+    }
 }

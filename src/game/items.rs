@@ -18,7 +18,6 @@ impl Plugin for Items {
         app.add_systems(PreStartup, initialize_dictionary);
         app.add_systems(Startup, (generate_container_items));
         app.add_systems(PostStartup, fetch_item_info);
-        app.add_systems(Update, transfer_items);
     }
 }
 
@@ -276,7 +275,7 @@ pub fn spawn_container(commands: &mut Commands) -> Entity {
 }
 
 pub fn generate_container_items(mut commands: Commands, item_storage: Res<ItemStorage>) {
-    for _ in 0..2 { 
+    for _ in 0..2 {
         let container_entity: Entity = commands.spawn(()).id();
         let item_list: Vec<Name> = item_storage.items.keys().cloned().collect();
 
@@ -286,16 +285,19 @@ pub fn generate_container_items(mut commands: Commands, item_storage: Res<ItemSt
                 spawn_item(&mut commands, &item_storage, name.as_str().to_string()).expect("Boo");
             let mut inventory = Vec::new();
             inventory.push(item);
-            commands.entity(container_entity).insert(ContainerBundle {
-                marker: Container,
-                inventory: Inventory {
-                    weight_limit: Some(10.0),
-                    items: (inventory),
-                },
-            }).insert(Name::new("Container"));
-            commands.entity(item).insert(ParentContainer(container_entity));
+            commands
+                .entity(container_entity)
+                .insert(ContainerBundle {
+                    marker: Container,
+                    inventory: Inventory {
+                        weight_limit: Some(10.0),
+                        items: (inventory),
+                    },
+                })
+                .insert(Name::new("Container"));
+            commands
+                .entity(item)
+                .insert(ParentContainer(container_entity));
         };
-
-    };
-
+    }
 }

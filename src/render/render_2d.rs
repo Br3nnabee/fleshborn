@@ -10,54 +10,11 @@ impl Plugin for Render2d {
         app.add_plugins(TilemapPlugin);
         app.add_plugins(TiledMapPlugin);
         app.add_plugins(WorldInspectorPlugin::new());
-        app.add_systems(Update, movement);
         app.add_systems(Startup, startup);
     }
 }
 
 const MINIMUM_SCALE: f32 = 0.1;
-
-pub fn movement(
-    time: Res<Time>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>,
-) {
-    for (mut transform, mut ortho) in query.iter_mut() {
-        let mut direction = Vec3::ZERO;
-
-        if keyboard_input.pressed(KeyCode::KeyA) {
-            direction -= Vec3::new(1.0, 0.0, 0.0);
-        }
-
-        if keyboard_input.pressed(KeyCode::KeyS) {
-            direction += Vec3::new(1.0, 0.0, 0.0);
-        }
-
-        if keyboard_input.pressed(KeyCode::KeyW) {
-            direction += Vec3::new(0.0, 1.0, 0.0);
-        }
-
-        if keyboard_input.pressed(KeyCode::KeyR) {
-            direction -= Vec3::new(0.0, 1.0, 0.0);
-        }
-
-        if keyboard_input.pressed(KeyCode::KeyZ) {
-            ortho.scale += 0.1;
-        }
-
-        if keyboard_input.pressed(KeyCode::KeyX) {
-            ortho.scale -= 0.1;
-        }
-
-        if ortho.scale < MINIMUM_SCALE {
-            ortho.scale = MINIMUM_SCALE;
-        }
-
-        let z = transform.translation.z;
-        transform.translation += time.delta_seconds() * direction * 500.;
-        transform.translation.z = z;
-    }
-}
 
 fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
