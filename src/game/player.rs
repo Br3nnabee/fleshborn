@@ -147,30 +147,30 @@ fn player_movement(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut player_query: Query<&mut Transform, With<Player>>,
-    mut camera_query: Query<&Transform, (With<Camera3d>, Without<Player>)>,
 ) {
     for mut player_transform in player_query.iter_mut() {
-        let camera = match camera_query.get_single() {
-            Ok(c) => c,
-            Err(e) => Err(format!("Error Retrieving Camera: {}", e)).unwrap(),
-        };
-
         let mut direction = Vec3::ZERO;
 
-        if keys.pressed(KeyCode::KeyW) {
-            direction += camera.forward().normalize_or_zero();
-        };
-
+        // Define movement vectors for each key
         if keys.pressed(KeyCode::KeyR) {
-            direction += camera.back().normalize_or_zero();
-        }
-
-        if keys.pressed(KeyCode::KeyA) {
-            direction += camera.left().normalize_or_zero();
+            direction += Vec3::new(1.0, 0.0, 1.0); // +X, +Z
         }
 
         if keys.pressed(KeyCode::KeyS) {
-            direction += camera.right().normalize_or_zero();
+            direction += Vec3::new(1.0, 0.0, -1.0); // +X, -Z
+        }
+
+        if keys.pressed(KeyCode::KeyW) {
+            direction += Vec3::new(-1.0, 0.0, -1.0); // -X, -Z
+        }
+
+        if keys.pressed(KeyCode::KeyA) {
+            direction += Vec3::new(-1.0, 0.0, 1.0); // -X, +Z
+        }
+
+        // Normalize the direction to prevent faster diagonal movement
+        if direction.length_squared() > 0.0 {
+            direction = direction.normalize();
         }
 
         let movement = direction * 2.0 * time.delta_seconds();
