@@ -1,12 +1,14 @@
 use crate::game::items::Items;
-use crate::render::render_2d::Render2d;
-use crate::render::render_3d::Render3d;
+use crate::network::ProtocolPlugin;
+use crate::render::{Render2d, Render3d};
 use bevy::prelude::*;
 use game::player::PlayerPlugin;
 
 use std::f32::consts::*;
 
+mod config;
 mod game;
+mod network;
 mod render;
 mod ui;
 
