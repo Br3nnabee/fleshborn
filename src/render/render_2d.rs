@@ -17,7 +17,6 @@ impl Plugin for Render2d {
 
 const MINIMUM_SCALE: f32 = 0.1;
 
-// A simple camera system for moving and zooming the camera.
 pub fn movement(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -56,8 +55,6 @@ pub fn movement(
 
         let z = transform.translation.z;
         transform.translation += time.delta_seconds() * direction * 500.;
-        // Important! We need to restore the Z values when moving the camera around.
-        // Bevy has a specific camera setup and this can mess with how our layers are shown.
         transform.translation.z = z;
     }
 }
@@ -69,15 +66,10 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(TiledMapBundle {
         tiled_map: map_handle,
         render_settings: TilemapRenderSettings {
-            // bevy_ecs_tilemap provide the 'y_sort' parameter to
-            // sort chunks using their y-axis position during rendering.
-            // However, it applies to whole chunks, not individual tile,
-            // so we have to force the chunk size to be exactly one tile
             render_chunk_size: UVec2::new(1, 1),
             y_sort: true,
         },
         tiled_settings: TiledMapSettings {
-            // Not related to current example, but center the map
             map_positioning: MapPositioning::Centered,
             ..default()
         },

@@ -18,14 +18,12 @@ impl Plugin for Render3d {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera3dBundle {
         projection: OrthographicProjection {
-            // 6 world units per window height.
             scaling_mode: ScalingMode::FixedVertical(6.0),
             ..default()
         }
         .into(),
         transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         camera: Camera {
-            // renders after / on top of the main camera
             order: 1,
             clear_color: ClearColorConfig::None,
             ..default()
@@ -38,10 +36,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             shadows_enabled: true,
             ..default()
         },
-        // This is a relatively small scene, so use tighter shadow
-        // cascade bounds than the default for better quality.
-        // We also adjusted the shadow map to be larger since we're
-        // only using a single cascade.
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,
             maximum_distance: 1.6,

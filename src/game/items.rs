@@ -16,8 +16,9 @@ impl Plugin for Items {
             items: Default::default(),
         });
         app.add_systems(PreStartup, initialize_dictionary);
-        app.add_systems(Startup, (spawn_potion, generate_container_items));
+        app.add_systems(Startup, (generate_container_items));
         app.add_systems(PostStartup, fetch_item_info);
+        app.add_systems(Update, transfer_items);
     }
 }
 
@@ -76,7 +77,7 @@ pub struct RawItemData {
 
 pub fn spawn_item(
     mut commands: &mut Commands,
-    item_storage: Res<ItemStorage>,
+    item_storage: &Res<ItemStorage>,
     name: String,
 ) -> Option<Entity> {
     let start = Instant::now();
@@ -115,7 +116,7 @@ pub fn spawn_item(
 
 pub fn spawn_potion(mut commands: Commands, item_storage: Res<ItemStorage>) {
     let name = "potion".to_string();
-    let _ = spawn_item(&mut commands, item_storage, name);
+    let _ = spawn_item(&mut commands, &item_storage, name);
 }
 
 pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<ItemStorage>) {
@@ -275,21 +276,26 @@ pub fn spawn_container(commands: &mut Commands) -> Entity {
 }
 
 pub fn generate_container_items(mut commands: Commands, item_storage: Res<ItemStorage>) {
-    let container_entity: Entity = commands.spawn(()).id();
-    let item_list: Vec<Name> = item_storage.items.keys().cloned().collect();
+    for _ in 0..2 { 
+        let container_entity: Entity = commands.spawn(()).id();
+        let item_list: Vec<Name> = item_storage.items.keys().cloned().collect();
 
-    let mut rng = thread_rng();
-    if let Some(name) = item_list.choose(&mut rng) {
-        let item: Entity =
-            spawn_item(&mut commands, item_storage, name.as_str().to_string()).expect("Boo");
-        let mut inventory = Vec::new();
-        inventory.push(item);
-        commands.entity(container_entity).insert(ContainerBundle {
-            marker: Container,
-            inventory: Inventory {
-                weight_limit: Some(10.0),
-                items: (inventory),
-            },
-        });
-    }
+        let mut rng = thread_rng();
+        if let Some(name) = item_list.choose(&mut rng) {
+            let item: Entity =
+                spawn_item(&mut commands, &item_storage, name.as_str().to_string()).expect("Boo");
+            let mut inventory = Vec::new();
+            inventory.push(item);
+            commands.entity(container_entity).insert(ContainerBundle {
+                marker: Container,
+                inventory: Inventory {
+                    weight_limit: Some(10.0),
+                    items: (inventory),
+                },
+            }).insert(Name::new("Container"));
+            commands.entity(item).insert(ParentContainer(container_entity));
+        };
+
+    };
+
 }
