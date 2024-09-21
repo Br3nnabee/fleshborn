@@ -275,7 +275,7 @@ pub fn spawn_container(commands: &mut Commands) -> Entity {
 }
 
 pub fn generate_container_items(mut commands: Commands, item_storage: Res<ItemStorage>) {
-    for _ in 0..2 {
+    for _ in 0..7500 {
         let container_entity: Entity = commands.spawn(()).id();
         let item_list: Vec<Name> = item_storage.items.keys().cloned().collect();
 
