@@ -2,6 +2,7 @@ use crate::game::common::Weight;
 use crate::game::items::Inventory;
 use crate::ui::ui::DisplayName;
 use bevy::prelude::*;
+use leafwing_input_manager::prelude::*;
 
 pub struct PlayerPlugin;
 
@@ -9,20 +10,37 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_player);
         app.add_systems(Update, player_movement);
+        app.add_plugins(InputManagerPlugin::<PlayerAction>::default());
+        app.add_event::<PlayerWalk>();
     }
 }
 
 #[derive(Component, Debug)]
 pub struct Player;
 
-#[derive(Bundle, Debug)]
+#[derive(Bundle)]
 pub struct PlayerBundle {
     pub marker: Player,
+    pub input_manager: InputManagerBundle<PlayerAction>,
     pub name: Name,
     pub display_name: DisplayName,
     pub inventory: Inventory,
     pub stats: StatsBundle,
     pub traits: PlayerTraits,
+}
+
+impl PlayerBundle {
+    fn default_input_map() -> InputMap<PlayerAction> {
+        use PlayerAction::*;
+        let mut input_map = InputMap::default();
+
+        input_map.insert(Up, KeyCode::KeyW);
+        input_map.insert(Down, KeyCode::KeyR);
+        input_map.insert(Left, KeyCode::KeyA);
+        input_map.insert(Right, KeyCode::KeyS);
+
+        input_map
+    }
 }
 
 #[derive(Bundle, Debug)]
@@ -134,6 +152,7 @@ pub fn init_player(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 stats: StatsBundle::default(),
                 traits: PlayerTraits(Vec::new()),
+                input_manager: InputManagerBundle::with_map(PlayerBundle::default_input_map()),
             },
             SceneBundle {
                 scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("BasePlayer.glb")),
@@ -143,37 +162,59 @@ pub fn init_player(mut commands: Commands, asset_server: Res<AssetServer>) {
         .id();
 }
 
+#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect)]
+pub enum PlayerAction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl PlayerAction {
+    const DIRECTIONS: [(Self, Vec3); 4] = [
+        (PlayerAction::Up, Vec3::new(-1.0, 0.0, -1.0)),
+        (PlayerAction::Down, Vec3::new(1.0, 0.0, 1.0)),
+        (PlayerAction::Left, Vec3::new(-1.0, 0.0, 1.0)),
+        (PlayerAction::Right, Vec3::new(1.0, 0.0, -1.0)),
+    ];
+
+    fn direction(self) -> Option<Vec3> {
+        PlayerAction::DIRECTIONS
+            .iter()
+            .find(|&&(action, _)| action == self)
+            .map(|&(_, dir)| dir)
+    }
+}
+
+#[derive(Event)]
+pub struct PlayerWalk {
+    pub direction: Vec3,
+}
+
 fn player_movement(
-    keys: Res<ButtonInput<KeyCode>>,
+    query: Query<&ActionState<PlayerAction>, With<Player>>,
+    mut transforms: Query<&mut Transform, With<Player>>,
     time: Res<Time>,
-    mut player_query: Query<&mut Transform, With<Player>>,
+    mut event_writer: EventWriter<PlayerWalk>,
 ) {
-    for mut player_transform in player_query.iter_mut() {
-        let mut direction = Vec3::ZERO;
+    let action_state = query.single();
+    let mut direction = Vec3::ZERO;
 
-        // Define movement vectors for each key
-        if keys.pressed(KeyCode::KeyR) {
-            direction += Vec3::new(1.0, 0.0, 1.0); // +X, +Z
+    for &(input_action, dir) in PlayerAction::DIRECTIONS.iter() {
+        if action_state.pressed(&input_action) {
+            direction += dir;
         }
+    }
 
-        if keys.pressed(KeyCode::KeyS) {
-            direction += Vec3::new(1.0, 0.0, -1.0); // +X, -Z
-        }
+    if direction.length_squared() > 0.0 {
+        direction = direction.normalize();
+    }
 
-        if keys.pressed(KeyCode::KeyW) {
-            direction += Vec3::new(-1.0, 0.0, -1.0); // -X, -Z
-        }
+    let mut player_transform = transforms.single_mut();
+    let movement = direction * 2.0 * time.delta_seconds();
+    player_transform.translation += movement;
 
-        if keys.pressed(KeyCode::KeyA) {
-            direction += Vec3::new(-1.0, 0.0, 1.0); // -X, +Z
-        }
-
-        // Normalize the direction to prevent faster diagonal movement
-        if direction.length_squared() > 0.0 {
-            direction = direction.normalize();
-        }
-
-        let movement = direction * 2.0 * time.delta_seconds();
-        player_transform.translation += movement;
+    if direction.length_squared() > 0.0 {
+        event_writer.send(PlayerWalk { direction });
     }
 }
