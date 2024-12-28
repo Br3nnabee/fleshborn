@@ -3,6 +3,7 @@ use crate::game::items::Inventory;
 use crate::ui::ui::DisplayName;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
+use rustc_hash::FxHashSet;
 
 pub struct PlayerPlugin;
 
@@ -147,8 +148,8 @@ pub fn init_player(mut commands: Commands, asset_server: Res<AssetServer>) {
                 name: Name::new(player_name),
                 display_name: DisplayName(display_name),
                 inventory: Inventory {
-                    weight_limit: Some(10.0),
-                    items: Vec::new(),
+                    weight_limit: 10.0,
+                    items: FxHashSet::default(),
                 },
                 stats: StatsBundle::default(),
                 traits: PlayerTraits(Vec::new()),
