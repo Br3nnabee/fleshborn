@@ -1,4 +1,2 @@
-pub mod common;
-pub mod game;
+pub mod app;
 pub mod items;
-pub mod player;
