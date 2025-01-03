@@ -1,64 +1,79 @@
-use crate::fxhashset;
-use crate::game::common::*;
-use crate::ui::ui::*;
-use bevy::prelude::*;
-use rand::rngs::ThreadRng;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
-use rustc_hash::{FxHashMap, FxHashSet};
+#[cfg(feature = "server")]
+use bevy::{
+    app::{ PreStartup, Startup },
+    prelude::{ Commands, Res, ResMut, Resource, EntityCommands },
+};
+use bevy::app::PostStartup;
+use bevy::prelude::{ Plugin, Component, Reflect, Entity, Name, App, info, Query, With };
+use bevy::utils::Instant;
 use serde::Deserialize;
-use std::time::Instant;
+use rustc_hash::{ FxHashMap, FxHashSet };
+#[cfg(feature = "server")]
+use bevy_rand::prelude::{ GlobalEntropy, WyRand, ForkableRng };
+#[cfg(feature = "server")]
+use rand_core::RngCore;
 
-pub struct Items;
+use crate::utils::common::{ PropertyValue, Tags, Weight, DisplayName, Icon, choose_random };
+use crate::{ fxhashset, fxhashmap };
 
-impl Plugin for Items {
+pub struct ItemsPlugin;
+
+// Quick plugin definition, nothing special.
+impl Plugin for ItemsPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "server")]
         app.insert_resource(ItemStorage {
             items: Default::default(),
         });
-        app.add_systems(PreStartup, initialize_dictionary);
-        app.add_systems(Startup, (generate_container_items));
+        #[cfg(feature = "server")]
+        app.add_systems(PreStartup, initialize_item_storage);
+        #[cfg(feature = "server")]
+        app.add_systems(Startup, (spawn_sword, generate_container_items));
         app.add_systems(PostStartup, fetch_item_info);
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Reflect)]
+#[require(Name, DisplayName, Weight, Icon, Tags, ItemProperties)]
 pub struct Item;
-
-#[derive(Debug, Clone, Deserialize)]
-pub enum PropertyValue {
-    Bool(bool),
-    Int(i32),
-    Float(f32),
-    Text(String),
-}
 
 #[derive(Component, Debug, Clone, Deserialize)]
 pub struct ItemProperties(pub FxHashMap<String, PropertyValue>);
 
-#[derive(Component, Debug)]
+impl Default for ItemProperties {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(Component, Debug, Clone)]
 pub struct Inventory {
     pub weight_limit: f32,
     pub items: FxHashSet<Entity>,
 }
 
-#[derive(Component, Debug)]
-pub struct Container;
-
-#[derive(Component, Debug)]
-pub struct ParentContainer(Entity);
-
-#[derive(Bundle)]
-pub struct ContainerBundle {
-    pub marker: Container,
-    pub inventory: Inventory,
+impl Default for Inventory {
+    fn default() -> Self {
+        Self { weight_limit: 0.0, items: Default::default() }
+    }
 }
 
+#[derive(Component, Debug, Reflect)]
+#[require(Inventory)]
+pub struct Container;
+
+#[derive(Component, Debug, Reflect)]
+pub struct ParentContainer(Entity);
+
+// This will be the spawn dictionary. Everything that can be spawned in is defined here
+#[cfg(feature = "server")]
 #[derive(Resource)]
 pub struct ItemStorage {
     pub items: FxHashMap<Name, RawItemData>,
 }
 
+// Primarily to clean things up and deserialize from files.
+#[cfg(feature = "server")]
 #[derive(Debug, Clone, Deserialize)]
 pub struct RawItemData {
     pub display_name: DisplayName,
@@ -68,33 +83,9 @@ pub struct RawItemData {
     pub properties: ItemProperties,
 }
 
-pub fn spawn_item(
-    commands: &mut Commands,
-    item_storage: &Res<ItemStorage>,
-    name: &str,
-) -> Option<Entity> {
-    let item_name = Name::new(name.to_string());  
-    if let Some(item) = item_storage.items.get(&item_name) {
-        let mut entity = commands.spawn((Item, item_name.clone()));
-        entity.insert(item.display_name.clone());
-        entity.insert(item.weight.clone());
-        entity.insert(item.icon.clone());
-        entity.insert(item.tags.clone());
-        entity.insert(item.properties.clone());
-        println!("Successfully spawned {}.", &item_name);
-        Some(entity.id())
-    } else {
-        println!("Item '{}' not found in item storage.", &item_name);
-        None
-    }
-}
-
-pub fn spawn_potion(mut commands: Commands, item_storage: Res<ItemStorage>) {
-    let name = "potion".to_string();
-    let _ = spawn_item(&mut commands, &item_storage, name.as_str());
-}
-
-pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<ItemStorage>) {
+// Placeholder to just define a couple of things to insert into the dictionary. Will essentially be the same after though.
+#[cfg(feature = "server")]
+fn initialize_item_storage(commands: Commands, mut item_storage: ResMut<ItemStorage>) {
     // TODO: Add deserialization and reading from JSON
 
     let items_data = vec![
@@ -106,9 +97,7 @@ pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<It
                 icon: Icon("Icon_Sword".to_string()),
                 tags: Tags(fxhashset!["Weapon".to_string()]),
                 properties: ItemProperties({
-                    let mut props = FxHashMap::default();
-                    props.insert(String::from("Damage"), PropertyValue::Int(30));
-                    props
+                    fxhashmap! { String::from("Damage") => PropertyValue::Int(30) }
                 }),
             },
         ),
@@ -120,9 +109,7 @@ pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<It
                 icon: Icon("Icon_Shield".to_string()),
                 tags: Tags(fxhashset!["Armor".to_string()]),
                 properties: ItemProperties({
-                    let mut props = FxHashMap::default();
-                    props.insert(String::from("Defense"), PropertyValue::Int(50));
-                    props
+                    fxhashmap! { String::from("Defense") => PropertyValue::Int(50) }
                 }),
             },
         ),
@@ -134,12 +121,10 @@ pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<It
                 icon: Icon("Icon_Potion".to_string()),
                 tags: Tags(fxhashset!["Healing".to_string(), "Consumable".to_string()]),
                 properties: ItemProperties({
-                    let mut props = FxHashMap::default();
-                    props.insert(String::from("Healing"), PropertyValue::Int(30));
-                    props
+                    fxhashmap! { String::from("Healing") => PropertyValue::Int(30) }
                 }),
             },
-        ),
+        )
     ];
 
     let start = Instant::now();
@@ -149,84 +134,149 @@ pub fn initialize_dictionary(mut commands: Commands, mut item_storage: ResMut<It
     }
 
     let duration = start.elapsed();
-    println!(
-        "Item dictionary initialized with {} items in {:?}.",
-        item_storage.items.len(),
-        duration
-    );
+    info!("Item dictionary initialized with {} items in {:?}.", item_storage.items.len(), duration);
 }
 
-pub fn fetch_item_info(
-    query: Query<(&Name, &DisplayName, &Weight, &Icon, &Tags, &ItemProperties), With<Item>>,
+// Will spawn an item using its id (bevy Name) and the spawn dictionary.
+#[cfg(feature = "server")]
+fn spawn_item(
+    commands: &mut Commands,
+    item_storage: &Res<ItemStorage>,
+    name: &str
+) -> Option<Entity> {
+    let item_name = Name::new(name.to_string());
+    if let Some(item) = item_storage.items.get(&item_name) {
+        let entity = commands
+            .spawn((
+                // I really don't like having to clone stuff but I think this is the only way to handle it here.
+                Item,
+                item_name.clone(),
+                item.display_name.clone(),
+                item.weight.clone(),
+                item.icon.clone(),
+                item.tags.clone(),
+                item.properties.clone(),
+            ))
+            .id();
+        info!("Spawned item {} with id {}", item_name, entity);
+        Some(entity)
+    } else {
+        None
+    }
+}
+
+// Really basic, just spawns an entity and gives it the container component.
+#[cfg(feature = "server")]
+fn spawn_container(commands: &mut Commands) -> Entity {
+    let entity = commands.spawn(Container).id();
+    info!("Spawned container with id {}", entity);
+    entity
+}
+
+// Still unfinished, transfers an item. Same function works for moving it into a container,
+// out of a container, or from one container to another. Certainly feels suboptimal atm.
+// TODO: Optimize, improve error handling, and clean up.
+#[cfg(feature = "server")]
+fn move_item(
+    commands: &mut Commands,
+    item: Entity,
+    current_container: Option<Entity>,
+    target_container: Option<Entity>,
+    mut query_inventory: Query<&mut Inventory>,
+    mut query_parent: Query<&mut ParentContainer>
 ) {
-    println!("Items:");
+    match (current_container, target_container) {
+        (Some(current), Some(target)) => {
+            // TODO: Replace these clones and handle things in a more rusty/optimal way.
+            let mut curr = query_inventory.get_mut(current).expect("Err").clone();
+            let mut tar = query_inventory.get_mut(target).expect("Err").clone();
+            if let Ok(mut parent) = query_parent.get_mut(item) {
+                *parent = ParentContainer(target);
+            }
+            curr.items.remove(&item);
+            tar.items.insert(item);
+            info!(
+                "Transferred item with id {:?} from container with id {:?} into container with id {:?}",
+                item,
+                current,
+                target
+            )
+        }
+        (Some(current), None) => {
+            if let Ok(curr) = query_inventory.get_mut(current) {
+                if let Ok(parent) = query_parent.get_mut(item) {
+                    commands.entity(item).remove::<ParentContainer>();
+                }
+            }
+            info!("Removed item with id {:?} from container with id {:?}", item, current);
+        }
+        (None, Some(target)) => {
+            if let Ok(mut tar) = query_inventory.get_mut(target) {
+                commands.entity(item).insert(ParentContainer(target));
+                tar.items.insert(item);
+            }
+            info!("Added item with id {:?} to container with id {:?}", item, target);
+        }
+        (None, None) => {
+            warn!("No containers specified for move operation");
+        }
+    }
+}
+
+#[cfg(feature = "server")]
+fn spawn_sword(mut commands: Commands, item_storage: Res<ItemStorage>) {
+    spawn_item(&mut commands, &item_storage, "sword");
+}
+
+// Queries all items's data atm, more of a debugging tool. Will be shifted to be able to query specific items.
+fn fetch_item_info(
+    query: Query<(&Name, &DisplayName, &Weight, &Icon, &Tags, &ItemProperties), With<Item>>
+) {
+    info!("Queried items:");
 
     for (name, display_name, weight, icon, tags, item_properties) in query.iter() {
-        println!("  {}", name.as_str());
-        println!("    DisplayName: {}", display_name.0);
-        println!("    Weight: {}", weight.0);
-        println!("    Icon: {}", icon.0);
-        println!("    Tags:");
-        for tag in &tags.0 {
-            println!("      {}", tag);
-        }
-        println!("    Properties:");
+        println!(
+            "  {}\n    DisplayName: {}\n    Weight: {}\n    Icon: {}\n    Tags: {:?}\n    Properties:",
+            name.as_str(),
+            display_name.0,
+            weight.0,
+            icon.0,
+            tags.0
+        );
+
         for (key, value) in &item_properties.0 {
-            println!(
-                "      {}: {}",
-                key,
-                match value {
-                    PropertyValue::Bool(val) => format!("{}", val),
-                    PropertyValue::Int(val) => format!("{}", val),
-                    PropertyValue::Float(val) => format!("{}", val),
-                    PropertyValue::Text(val) => val.clone(),
-                }
-            );
+            let value_str = match value {
+                PropertyValue::Bool(val) => val.to_string(),
+                PropertyValue::Int(val) => val.to_string(),
+                PropertyValue::Float(val) => val.to_string(),
+                PropertyValue::Text(val) => val.clone(),
+            };
+            println!("      {}: {}", key, value_str);
         }
     }
 }
 
-pub fn spawn_container(commands: &mut Commands) -> Entity {
-    let container: Entity = commands
-        .spawn(ContainerBundle {
-            marker: Container,
-            inventory: Inventory {
-                weight_limit: 10.0,
-                items: FxHashSet::default(),
-            },
-        })
-        .id();
-    println!("Container spawned with id: {}", container);
-    container
-}
+// Placeholder/testing function to spanw a container and a random entity and insert it.
+#[cfg(feature = "server")]
+fn generate_container_items(
+    mut commands: Commands,
+    item_storage: Res<ItemStorage>,
+    mut global_entropy: GlobalEntropy<WyRand>
+) {
+    let container_entity: Entity = commands.spawn(()).id();
+    let item_keys = item_storage.items.keys();
+    let mut rng = global_entropy.fork_rng();
 
-pub fn generate_container_items(mut commands: Commands, item_storage: Res<ItemStorage>) {
-    for _ in 0..2 {
-        let container_entity: Entity = commands.spawn(()).id();
-        let item_list: Vec<Name> = item_storage.items.keys().cloned().collect();
+    if let Some(name) = choose_random(item_keys, &mut rng) {
+        let item = spawn_item(&mut commands, &item_storage, name.as_str()).expect(
+            "Failed to spawn item"
+        );
 
-        let mut rng = thread_rng();
-        if let Some(name) = item_list.choose(&mut rng) {
-            let item: Entity =
-                spawn_item(&mut commands, &item_storage, name.as_str()).expect("Boo");
-            let mut inventory = FxHashSet::default();
-            inventory.insert(item);
-            commands
-                .entity(container_entity)
-                .insert(ContainerBundle {
-                    marker: Container,
-                    inventory: Inventory {
-                        weight_limit: 10.0,
-                        items: inventory,
-                    },
-                })
-                .insert(Name::new("Container"));
-            commands
-                .entity(item)
-                .insert(ParentContainer(container_entity));
-        };
+        let inventory = Inventory { items: fxhashset![item], ..Default::default() };
+
+        commands.entity(container_entity).insert((Container, inventory, Name::new("Container")));
+
+        commands.entity(item).insert(ParentContainer(container_entity));
+        info!("Spawned container with id {} and inserted item with id {}", container_entity, item)
     }
 }
-
-
-

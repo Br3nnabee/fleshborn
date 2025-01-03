@@ -1,30 +1,50 @@
 [package]
-name = "bevy-pz"
-version = "0.1.0"
+name = "fleshborn"
+version = "0.0.1"
 edition = "2021"
+authors = ["Brenna Conovali <contact@br3nnabee.info>"]
+license = "GPL-3.0-only"
+description = "Isometric zombie survival game"
+repository = "https://github.com/br3nnabee/fleshborn"
+keywords = ["game", "bevy", "rust"]
+categories = ["game-engine", "2d", "3d"]
 
-[lints.rust]
-unused = "allow"
+[features]
+default = []
+gui = []
+client = ["gui"]
+server = []
 
-# Enable a small amount of optimization in debug mode
+
 [profile.dev]
 opt-level = 1
+debug = true
+overflow-checks = true
+lto = false
+codegen-units = 8
 
-# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
 
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = false
+overflow-checks = false
+panic = "abort"
+
 [dependencies]
-bevy = { version = "0.14.2", features = ["dynamic_linking"] }
-tiled = "0.12.0"
-rustc-hash = "2.0.0"
-smallvec = { version = "1.13.2", features = ["serde"] }
-serde = "1.0.208"
-serde_json = "1.0.125"
-rand = "0.8.5"
-bevy_ecs_tiled = "0.3"
-bevy_ecs_tilemap = "0.14"
-bevy-inspector-egui = "0.26.0"
-lightyear = "0.17.1"
+bevy = { version = "0.15", features = ["dynamic_linking"] }
+lightyear = { version = "0.18", features = ["leafwing", "webtransport"] }
+bevy-inspector-egui = "0.28"
+leafwing-input-manager = "0.16"
+rustc-hash = "2.1.0"
 iyes_perf_ui = "0.3.0"
-leafwing-input-manager = "0.15.1"
+serde = { version = "1.0", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
+async-compat = "0.2"
+cfg-if = "1.0"
+crossbeam-channel = "0.5"
+rand_core = "0.6"
+bevy_rand = { version = "0.9", features = ["thread_local_entropy", "wyrand"] }
