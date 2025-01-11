@@ -12,7 +12,7 @@ pub struct ProtocolPlugin;
 // Defines the kinds of components that can be sent over network
 
 #[derive(Component, Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct PlayerId(ClientId);
+pub struct PlayerId(pub ClientId);
 
 #[derive(Component, Serialize, Deserialize, Clone, Debug, PartialEq, Deref, DerefMut)]
 pub struct PlayerPosition(Vec3A); // Use Vec3A for better performance
